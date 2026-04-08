@@ -1,0 +1,37 @@
+{
+  "source": "https://www.kaggle.com/datasets/ananthu017/emotion-detection-fer",
+  "source-directory": "emotion-detection-fer",
+
+  "labels-total": 7,
+  "labels": [
+    "angry",
+    "disgusted",
+    "fearful",
+    "happy",
+    "neutral",
+    "sad",
+    "surprised"
+  ],
+
+  "train-total": 28709,
+  "train": {
+    "angry": 3995,
+    "disgusted": 436,
+    "fearful": 4097,
+    "happy": 7215,
+    "neutral": 4965,
+    "sad": 4830,
+    "surprised": 3171
+  },
+
+  "test-total": 7178,
+  "test": {
+    "angry": 958,
+    "disgusted": 111,
+    "fearful": 1024,
+    "happy": 1774,
+    "neutral": 1233,
+    "sad": 1247,
+    "surprised": 831
+  }
+}
