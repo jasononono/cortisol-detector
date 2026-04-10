@@ -5,9 +5,9 @@ class Model:
     def __init__(self):
         self.layers = []
 
-    def forward(self, activation):
+    def forward(self, activation, batch_size):
         for l in self.layers:
-            activation = l.forward(activation)
+            activation = l.forward(activation, batch_size)
         return activation
 
     def compile(self):
@@ -16,11 +16,13 @@ class Model:
                 i.init_parameter()
 
     def add(self, l):
+        l.parent = self
+        l.pass_back = len(self.layers) != 0
         self.layers.append(l)
 
-    def backpropagate(self, gradient, delta_multiplier):
+    def backpropagate(self, gradient, delta_multiplier, batch_size):
         for i in range(len(self.layers) - 2, -1, -1):
-            gradient = self.layers[i].backpropagate(gradient, delta_multiplier)
+            gradient = self.layers[i].backpropagate(gradient, delta_multiplier, batch_size)
 
 
 def save(model, file_name):
@@ -32,8 +34,11 @@ def save(model, file_name):
             case 1: # Convolution
                 data.write_uint16(l.input_size)
                 data.write_uint16(l.filter_size)
+                data.write_uint16(l.input_channels)
+                data.write_uint16(l.output_channels)
                 data.write_uint16(l.stride)
-                data.write_numpy(l.filter)
+                data.write_numpy(l.filters)
+                data.write_numpy(l.channel_biases)
             case 2: # ReLU
                 pass
             case 3: # Softmax
@@ -50,6 +55,10 @@ def save(model, file_name):
                 data.write_uint16(l.output_size)
                 data.write_numpy(l.weights)
                 data.write_numpy(l.biases)
+            case 6: # MaxPool
+                data.write_uint16(l.input_size)
+                data.write_uint16(l.channels)
+                data.write_uint16(l.filter_size)
             case _:
                 pass
 
@@ -66,8 +75,8 @@ def load(file_name):
         layer_type = data.read_uint8()
         match layer_type:
             case 1: # Convolution
-                l = layer.Convolution(data.read_uint16(), data.read_uint16(), data.read_uint16())
-                l.set_parameter(data.read_numpy())
+                l = layer.Convolution(*[data.read_uint16() for _ in range(5)])
+                l.set_parameter(data.read_numpy(), data.read_numpy())
             case 2: # ReLU
                 l = layer.ReLU()
             case 3: # Softmax
@@ -78,6 +87,8 @@ def load(file_name):
             case 5: # Dense
                 l = layer.Dense(data.read_uint16(), data.read_uint16())
                 l.set_parameter(data.read_numpy(), data.read_numpy())
+            case 6: # MaxPool
+                l = layer.MaxPool(data.read_uint16(), data.read_uint16(), data.read_uint16())
             case _:
                 l = layer.Layer()
 
