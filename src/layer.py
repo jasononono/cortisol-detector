@@ -37,7 +37,7 @@ class Convolution(Layer):
         self.kernels = None # (B, If^2, o^2)
 
     def init_parameter(self):
-        self.filters = np.random.randn(self.input_channels, self.output_channels, self.filter_size, self.filter_size)
+        self.filters = np.random.randn(self.input_channels, self.output_channels, self.filter_size, self.filter_size) * np.sqrt(2 / (self.filter_size ** 2 * self.input_channels))
         self.filters_col = self.filters.transpose(1, 0, 2, 3).reshape(self.output_channels, self.input_channels * self.filter_size ** 2)
         self.channel_biases = np.zeros(self.output_channels)
         self.biases_col = self.channel_biases.reshape(self.output_channels, 1)
