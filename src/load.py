@@ -1,9 +1,9 @@
 from PIL import Image
 import numpy as np
-import file_util
+from src.nn import util
 
 
-data_info = file_util.load_json("data.json")
+data_info = util.load_json("data.json")
 labels = data_info["labels"]
 classes = {l: i for i, l in enumerate(labels)}
 
