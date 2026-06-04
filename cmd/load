@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+
+cp info.json src/app/info.json
+python3 cmd/asset_check.py

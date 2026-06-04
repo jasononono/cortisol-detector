@@ -1,5 +1,5 @@
 import numpy as np
-import nn
+import nn, gc
 
 
 data_in = np.load("src/data/train_input.npy")
@@ -11,27 +11,27 @@ valid_in = valid_in.reshape(-1, 1, 48, 48)
 
 
 '''INITIAL TRAINING'''
-# nn = model.Model()
+# model = nn.Model()
 #
-# nn.add(Convolution(48, 3, 1, 64, 1))
-# nn.add(ReLU())
-# nn.add(Convolution(46, 3, 64, 64, 1))
-# nn.add(ReLU())
-# nn.add(MaxPool(44, 64, 2))
+# model.add(nn.Convolution(48, 3, 1, 64, 1))
+# model.add(nn.ReLU())
+# model.add(nn.Convolution(46, 3, 64, 64, 1))
+# model.add(nn.ReLU())
+# model.add(nn.MaxPool(44, 64, 2))
 #
-# nn.add(Convolution(22, 3, 64, 128, 1))
-# nn.add(ReLU())
-# nn.add(MaxPool(20, 128, 2))
+# model.add(nn.Convolution(22, 3, 64, 128, 1))
+# model.add(nn.ReLU())
+# model.add(nn.MaxPool(20, 128, 2))
 #
-# nn.add(Convolution(10, 3, 128, 256, 1))
-# nn.add(ReLU())
-# nn.add(MaxPool(8, 256, 2))
+# model.add(nn.Convolution(10, 3, 128, 256, 1))
+# model.add(nn.ReLU())
+# model.add(nn.MaxPool(8, 256, 2))
 #
-# nn.add(Reshape((256, 4, 4), 4096))
-# nn.add(Dense(4096, 128))
-# nn.add(ReLU())
-# nn.add(Dense(128, 7))
-# nn.add(Softmax())
+# model.add(nn.Reshape((256, 4, 4), 4096))
+# model.add(nn.Dense(4096, 128))
+# model.add(nn.ReLU())
+# model.add(nn.Dense(128, 7))
+# model.add(nn.Softmax())
 #
 #
 # training.batched(nn, data_in, data_out, 10, batch_size = 64,
@@ -43,21 +43,26 @@ valid_in = valid_in.reshape(-1, 1, 48, 48)
 
 
 '''CONTINUED TRAINING'''
-# model = nn.load("src/models/v1-5")
-#
-# nn.batched(model, data_in, data_out, 100, batch_size = 64, recompile = False, learning_rate = 0.01,
-#            valid_in = valid_in, valid_out = valid_out, valid_size = 128)
-# valid_set = np.random.permutation(valid_in.shape[0])[:1000]
-# print(nn.get_stats(model, valid_in[valid_set], valid_out[valid_set]))
-# file_name = input("save model as (leave blank to discard) > ")
-# if file_name: nn.save(model, "src/models/" + file_name)
+model = nn.load("src/models/v3-9")
+# model.compile()
+
+valid_set = np.random.permutation(valid_in.shape[0])[:1000]
+for i in range(1, 10):
+    nn.batched(model, data_in, data_out, 10, batch_size = 64, recompile = False, learning_rate = 0.01 - 0.001*i,
+               valid_in = valid_in, valid_out = valid_out, valid_size = 128)
+    print(nn.get_stats(model, valid_in[valid_set], valid_out[valid_set]))
+    # file_name = input("save model as (leave blank to discard) > ")
+    file_name = f"v3-{i}"
+    if file_name: nn.save(model, "src/models/" + file_name)
 
 
 '''UNIT TESTING'''
-valid_set = np.random.permutation(valid_in.shape[0])[:1000]
-for i in range(4, 7):
-    model = nn.load(f"src/models/v1-{i}")
-    print(nn.get_stats(model, valid_in[valid_set], valid_out[valid_set]))
+# valid_set = np.random.permutation(valid_in.shape[0])[:1000]
+# for i in range(10):
+#     model = nn.load(f"src/models/v2-{i}")
+#     print(i, *nn.get_stats(model, valid_in[valid_set], valid_out[valid_set]))
+#     del model
+#     gc.collect()
 
 
 #
@@ -134,3 +139,34 @@ for i in range(4, 7):
 # # save(nn, "src/models/test")
 # # cProfile.run("train(nn, data_in, data_out, 10, batch_size = 1024, learning_rate = 0.1)")
 # '''
+
+
+'''new training'''
+
+# model = nn.Model()
+#
+# model.add(nn.Convolution(48, 3, 1, 32, 1))
+# model.add(nn.ReLU())
+# model.add(nn.Convolution(46, 3, 32, 64, 1))
+# model.add(nn.ReLU())
+# model.add(nn.MaxPool(44, 64, 2))
+#
+# model.add(nn.Convolution(22, 3, 64, 128, 1))
+# model.add(nn.ReLU())
+# model.add(nn.Convolution(20, 3, 128, 128, 1))
+# model.add(nn.ReLU())
+# model.add(nn.MaxPool(18, 128, 2))
+#
+# model.add(nn.Reshape((128, 9, 9), 10368))
+# model.add(nn.Dense(10368, 1024))
+# model.add(nn.ReLU())
+# model.add(nn.Dense(1024, 7))
+# model.add(nn.Softmax())
+#
+#
+# nn.batched(model, data_in, data_out, 10, batch_size = 64,
+#            target_loss = 0.05, target_accuracy = 50, learning_rate = 0.01,
+#            valid_in = valid_in, valid_out = valid_out, valid_size = 128)
+# file_name = input("save model as (leave blank to discard) > ")
+# if file_name:
+#     nn.save(model, "src/models/" + file_name)

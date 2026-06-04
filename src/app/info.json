@@ -1,0 +1,21 @@
+{
+  "name": "cortisol detector",
+  "version": "67",
+  "dependencies": {
+    "pyglet": "2.1.13",
+    "numpy": "2.4.3",
+    "numba": "0.65.0",
+    "opencv-python": "4.13.0.92",
+    "pillow": "12.1.1"
+  },
+  "data-ignore": [
+    "**/.DS_Store",
+    "**/__pycache__/",
+    "*.py"
+  ],
+  "data": [
+    "models/v2-5",
+    "models/haarcascade_frontalface_default.xml",
+    "info.json"
+  ]
+}

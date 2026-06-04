@@ -1,0 +1,4 @@
+#!/usr/bin/env zsh
+
+NAME=$(<cmd/dist.txt)
+./dist/"$NAME"/"$NAME"

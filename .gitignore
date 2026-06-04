@@ -5,5 +5,9 @@
 .vscode/
 
 emotion-detection-fer/
-src/data
-src/data_mnist
+src/data/
+src/models/
+
+build/
+dist/
+spec/

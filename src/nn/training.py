@@ -1,5 +1,5 @@
 import numpy as np
-import time
+import time, gc
 
 
 def categorial_cross_entropy(activation, expected):
@@ -49,7 +49,8 @@ def batched(model, data_in, data_out, epochs, recompile = True, learning_rate = 
             for i in range(0, train_size - batch_size + 1, batch_size):
                 gradient = compute_gradient(model.forward(samples_in[i:i + batch_size], batch_size), samples_out[i:i + batch_size])
                 model.backpropagate(gradient, learning_rate / batch_size, batch_size)
-                print('#', end = "")
+                gc.collect()
+                print('#', end = "", flush = True)
             print()
 
             output = model.forward(valid_in[valid_set], valid_size)

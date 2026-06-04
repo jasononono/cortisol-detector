@@ -18,7 +18,7 @@ sample = None
 sample_rate = 10
 sample_tick = 0
 
-model = nn.load("src/models/v1-5")
+model = nn.load("src/models/v2-5")
 prediction = np.zeros(7)
 classes = ["angry", "disgusted", "fearful", "happy", "neutral", "sad", "surprised"]
 

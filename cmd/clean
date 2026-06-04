@@ -1,0 +1,10 @@
+#!/usr/bin/env zsh
+
+rm -rf dist/*
+rm -rf spec/*
+rm -rf build/*
+
+NAME=$(<cmd/dist.txt)
+rm -f "$NAME".zip
+
+: > cmd/dist.txt
