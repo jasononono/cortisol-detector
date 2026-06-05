@@ -3,6 +3,8 @@ from PIL import Image
 import numpy as np
 import nn
 from util import Vector, path
+from gui import TextButton
+import random, time
 
 
 PREDICTION_RATE = 20
@@ -40,8 +42,11 @@ class Meter:
                                              font_name = "arial", font_size = 30, anchor_x = "center", anchor_y = "center",
                                              weight = "bold", batch = self.batch)
 
-    def update(self, prediction):
+    def update_score(self, prediction):
         self.score = np.sum(WEIGHT * prediction)
+        return self.score
+
+    def update(self):
         angle = math.pi * (self.score_visual / 2 + 0.5)
         pointer_head = Vector(math.cos(angle) * 150, math.sin(angle) * 150) + self.position
         pointer_right = Vector(math.cos(angle + 1) * 17, math.sin(angle + 1) * 17) + self.position
@@ -50,7 +55,7 @@ class Meter:
 
         self.score_visual = self.score_visual + (self.score - self.score_visual) * 0.2
         self.score_label.text = f"cortisol score: {round(self.score, 2)}"
-        self.score_label.color = (round(i * 0.6) for i in self.colours[round(self.score * 2 + 2)])
+        self.score_label.color = (round(i * 0.8) for i in self.colours[round(self.score * 2 + 2)])
 
         self.batch.draw()
 
@@ -76,6 +81,7 @@ class App:
 
         self.batch = pyglet.graphics.Batch()
         self.stats_batch = pyglet.graphics.Batch()
+        self.record_batch = pyglet.graphics.Batch()
         self.err_batch = pyglet.graphics.Batch()
 
         self.bg = pyglet.shapes.Rectangle(0, 0, self.screen_size.x, self.screen_size.y, (0, 0, 0), batch = self.err_batch)
@@ -92,9 +98,29 @@ class App:
 
         self.stats = False
 
-        self.stats_label = pyglet.text.Label("press z to open stats for nerds 🤓", self.screen_size.x - 20, self.screen_size.y - 20,
-                                             color = (255, 255, 255), anchor_x = "right", anchor_y = "top",
-                                             font_name = "arial", font_size = 25, batch = self.batch)
+        self.mouse_position = Vector(0, 0)
+        self.btn_pressed = False
+        self.btn_released = False
+        self.stats_btn = TextButton().set_text("stats for nerds 🤓").fit_text().to_batch(self.batch).set_center(Vector(self.screen_size.x - 170, self.screen_size.y - 50))
+
+        self.recording = False
+        self.record_tick = 0
+        self.record_emoji = None
+        self.record_btn = TextButton().set_text("record cortisol").fit_text().to_batch(self.batch).set_center(Vector(self.screen_size.x - 148, self.screen_size.y - 140))
+        self.shuffle_emoji()
+
+        self.record_counter = pyglet.text.Label("0", self.screen_size.x // 2, self.screen_size.y // 2,
+                                                color = (255, 255, 255), anchor_x = "center", anchor_y = "center",
+                                                font_name = "arial", font_size = 80, batch = self.record_batch)
+        self.record_score = pyglet.text.Label("lowest cortisol: N/A", self.screen_size.x // 2, 55,
+                                                color = (255, 255, 255), anchor_x = "center", anchor_y = "center",
+                                                font_name = "arial", font_size = 40, weight = "bold", batch = self.record_batch)
+        self.record_lowest = -float("inf")
+
+        self.prev_time = time.perf_counter()
+
+    def shuffle_emoji(self):
+        self.record_emoji = random.choice(['🤡', '🤫', '🐒', '🗿', '💀', '🗣️'])
 
     def run(self):
         @self.window.event
@@ -109,12 +135,28 @@ class App:
 
             if self.stats:
                 self.stats_batch.draw()
-            self.meter.update(self.prediction)
+            self.meter.update()
+            if self.recording:
+                self.record_batch.draw()
+
+            self.btn_pressed = False
+            self.btn_released = False
 
         @self.window.event
-        def on_key_press(symbol, modifiers):
-            if symbol == pyglet.window.key.Z:
-                self.toggle_stats()
+        def on_mouse_press(x, y, button, modifiers):
+            self.btn_pressed = True
+
+        @self.window.event
+        def on_mouse_release(x, y, button, modifiers):
+            self.btn_released = True
+
+        @self.window.event
+        def on_mouse_motion(x, y, dx, dy):
+            self.mouse_position.set(x, y)
+
+        @self.window.event
+        def on_mouse_drag(x, y, dx, dy, buttons, modifiers):
+            self.mouse_position.set(x, y)
 
         pyglet.app.run(1 / 60)
         self.camera.release()
@@ -122,9 +164,9 @@ class App:
     def toggle_stats(self):
         self.stats = not self.stats
         if self.stats:
-            self.stats_label.text = "press z to close stats for nerds 😴"
+            self.stats_btn.set_text("close stats for nerds 😴").fit_text().set_center(Vector(self.screen_size.x - 215, self.screen_size.y - 50))
         else:
-            self.stats_label.text = "press z to open stats for nerds 🤓"
+            self.stats_btn.set_text("stats for nerds 🤓").fit_text().set_center(Vector(self.screen_size.x - 170, self.screen_size.y - 50))
 
     def update(self, frame):
         array = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -151,6 +193,12 @@ class App:
             if self.emotion_sample_tick >= PREDICTION_RATE and self.sample is not None:
                 self.emotion_sample_tick = 0
                 self.prediction = self.model.forward(self.sample, 1).reshape(7)
+                score = self.meter.update_score(self.prediction)
+                if self.recording and score > self.record_lowest:
+                    self.record_lowest = score
+                    self.record_score.text = f"lowest score: {round(score, 2)}"
+                    self.record_score.color = (round(i * 0.8) for i in self.meter.colours[round(score * 2 + 2)])
+
                 if self.stats:
                     for i in range(7):
                         self.pred_data[i].width = 200 * self.prediction[i]
@@ -158,6 +206,41 @@ class App:
         if self.stats:
             self.face_rgb.blit(10, 10)
             self.face_mono.blit(10, 120)
+
+        self.stats_btn.update(self.mouse_position, self.btn_pressed, self.btn_released)
+        if self.stats_btn.released:
+            self.toggle_stats()
+        self.record_btn.update(self.mouse_position, self.btn_pressed, self.btn_released)
+        if self.record_btn.released:
+            self.recording = True
+            self.record_lowest = -float("inf")
+            self.record_tick = 0
+            self.shuffle_emoji()
+
+        now = time.perf_counter()
+
+        self.record_btn.set_visible(not self.recording)
+        if self.recording:
+            self.record_tick += now - self.prev_time
+            if self.record_tick < 3:
+                self.record_counter.y = self.screen_size.y // 2
+                self.record_counter.text = str(int(4 - self.record_tick))
+                self.record_counter.font_size = 80
+                self.record_score.visible = False
+            elif self.record_tick < 4:
+                self.record_counter.y = self.screen_size.y // 2
+                self.record_counter.text = self.record_emoji
+                self.record_counter.font_size = 80
+                self.record_score.visible = False
+            elif self.record_tick < 14:
+                self.record_counter.y = 120
+                self.record_score.visible = True
+                self.record_counter.font_size = 30
+                self.record_counter.text = str(format(14 - self.record_tick, ".2f"))
+            else:
+                self.recording = False
+
+        self.prev_time = now
 
     def process_face(self, cropped):
         image = Image.fromarray(cropped)

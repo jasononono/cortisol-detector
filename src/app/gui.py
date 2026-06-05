@@ -1,5 +1,5 @@
 import pyglet
-import util, event
+import util
 
 
 class Button:
@@ -9,19 +9,9 @@ class Button:
         self.corner_radius = 10
         self.outline_width = 7
 
-        self.base_colour = util.RGBA(default = True)
-        self.base_colour_hover = util.RGBA(default = True)
-        self.base_colour_down = util.RGBA(default = True)
-        self.base_colour_inactive = util.RGBA(default = True)
-
-        self.outline_colour = util.RGBA(default = True)
-        self.outline_colour_hover = util.RGBA(default = True)
-        self.outline_colour_down = util.RGBA(default = True)
-        self.outline_colour_inactive = util.RGBA(default = True)
-
-        self.base = pyglet.shapes.RoundedRectangle(0, 0, 0, 0, color = self.base_colour.decode(),
+        self.base = pyglet.shapes.RoundedRectangle(0, 0, 0, 0, color = (180, 180, 180),
                                                    radius = self.corner_radius, segments = 8)
-        self.outline = pyglet.shapes.RoundedRectangle(0, 0, 0, 0, color = self.outline_colour.decode(),
+        self.outline = pyglet.shapes.RoundedRectangle(0, 0, 0, 0, color = (170, 170, 170),
                                                       radius = self.corner_radius + self.outline_width, segments = 8)
 
         self.visible = True
@@ -70,38 +60,24 @@ class Button:
         self.outline.position = self.position.decode() - self.outline_width
         return self
 
-    def set_base_colour(self, default = None, hover = None, down = None, inactive = None):
-        self.base_colour = default or self.base_colour
-        self.base_colour_hover = hover or self.base_colour_hover or self.base_colour
-        self.base_colour_down = down or self.base_colour_down or self.base_colour
-        self.base_colour_inactive = inactive or self.base_colour_inactive or self.base_colour
-        return self
-
-    def set_outline_colour(self, default = None, hover = None, down = None, inactive = None):
-        self.outline_colour = default or self.outline_colour
-        self.outline_colour_hover = hover or self.outline_colour_hover or self.outline_colour
-        self.outline_colour_down = down or self.outline_colour_down or self.outline_colour
-        self.outline_colour_inactive = inactive or self.outline_colour_inactive or self.outline_colour
-        return self
-
     def collide_point(self, position):
         return self.position.x < position.x < self.position.x + self.size.x and self.position.y < position.y < self.position.y + self.size.y
 
     def refresh_colour(self):
         if not self.state_active:
-            self.base.color = self.base_colour_inactive.decode()
-            self.outline.color = self.outline_colour_inactive.decode()
+            self.base.color = (180, 180, 180)
+            self.outline.color = (170, 170, 170)
         elif self.state_down:
-            self.base.color = self.base_colour_down.decode()
-            self.outline.color = self.outline_colour_down.decode()
+            self.base.color = (170, 170, 170)
+            self.outline.color = (165, 165, 165)
         elif self.state_hover:
-            self.base.color = self.base_colour_hover.decode()
-            self.outline.color = self.outline_colour_hover.decode()
+            self.base.color = (185, 185, 185)
+            self.outline.color = (175, 175, 175)
         else:
-            self.base.color = self.base_colour.decode()
-            self.outline.color = self.outline_colour.decode()
+            self.base.color = (180, 180, 180)
+            self.outline.color = (170, 170, 170)
 
-    def update(self, game):
+    def update(self, mouse_position, pressed, released):
         self.pressed = False
         self.released = False
 
@@ -114,17 +90,17 @@ class Button:
             self.refresh_colour()
             return
 
-        if self.collide_point(game.event.mouse_position):
+        if self.collide_point(mouse_position):
             self.state_hover = True
-            if game.event.mouse_down(event.Mouse.Left):
+            if pressed:
                 self.state_down = True
                 self.pressed = True
         else:
             self.state_hover = False
 
-        if self.state_down and game.event.mouse_released(event.Mouse.Left):
+        if self.state_down and released:
             self.state_down = False
-            if self.collide_point(game.event.mouse_position):
+            if self.collide_point(mouse_position):
                 self.released = True
 
         self.refresh_colour()
@@ -134,17 +110,12 @@ class TextButton(Button):
     def __init__(self):
         super().__init__()
         self.text = "Button"
-        self.font_name = "Noto Sans Math"
+        self.font_name = "arial"
         self.font_size = 25
         self.font_buffer = util.Vector(20, 10)
 
-        self.text_colour = util.RGBA(default = True)
-        self.text_colour_hover = util.RGBA(default = True)
-        self.text_colour_down = util.RGBA(default = True)
-        self.text_colour_inactive = util.RGBA(default = True)
-
         self.label = pyglet.text.Label(self.text, 0, 0, anchor_x = "center", anchor_y = "center",
-                                       color = self.text_colour.decode(),
+                                       color = (255, 255, 255),
                                        font_name = self.font_name, font_size = self.font_size)
         self.fit_text()
 
@@ -178,95 +149,19 @@ class TextButton(Button):
         self.label.x, self.label.y = (self.position + self.size // 2).decode()
         return self
 
-    def set_text_colour(self, default = None, hover = None, down = None, inactive = None):
-        self.text_colour = default or self.text_colour
-        self.text_colour_hover = hover or self.text_colour_hover or self.text_colour
-        self.text_colour_down = down or self.text_colour_down or self.text_colour
-        self.text_colour_inactive = inactive or self.text_colour_inactive or self.text_colour
+    def to_batch(self, batch):
+        self.outline.batch = batch
+        self.base.batch = batch
+        self.label.batch = batch
         return self
 
     def refresh_colour(self):
         super().refresh_colour()
         if not self.state_active:
-            self.label.color = self.text_colour_inactive.decode()
+            self.label.color = (255, 255, 255)
         elif self.state_down:
-            self.label.color = self.text_colour_down.decode()
+            self.label.color = (255, 255, 255)
         elif self.state_hover:
-            self.label.color = self.text_colour_hover.decode()
+            self.label.color = (255, 255, 255)
         else:
-            self.label.color = self.text_colour.decode()
-
-
-class Label:
-    def __init__(self):
-        self.text = "Label"
-        self.font_name = "Noto Sans Math"
-        self.font_size = 25
-        self.colour = util.RGBA(default = True)
-
-        self.position = util.Vector()
-        self.visible = True
-
-        self.label = pyglet.text.Label(self.text, 0, 0, color = self.colour.decode(),
-                                       font_name = self.font_name, font_size = self.font_size)
-
-    def set_visible(self, visible):
-        self.visible = visible
-        self.label.visible = self.visible
-        return self
-
-    def set_position(self, position):
-        self.position = position
-        self.label.x, self.label.y = self.position.decode()
-        return self
-
-    def set_center(self, position):
-        size = util.Vector(self.label.content_width, self.label.content_height)
-        self.set_position(position - size // 2)
-        return self
-
-    def set_text(self, text, center = False):
-        current_center = None
-        if center:
-            current_center = self.position + util.Vector(self.label.content_width, self.label.content_height) // 2
-        self.text = text
-        self.label.text = self.text
-        if center:
-            self.set_center(current_center)
-        return self
-
-    def set_font(self, font_name = None, font_size = None):
-        self.font_name = font_name or self.font_name
-        self.font_size = font_size or self.font_size
-        self.label.font_name = self.font_name
-        self.label.font_size = self.font_size
-        return self
-
-    def set_colour(self, colour):
-        self.colour = colour
-        self.label.color = self.colour.decode()
-        return self
-
-
-class Entry(Label):
-    def __init__(self):
-        super().__init__()
-        self.active = True
-        self.submitted = False
-        self.text = ""
-
-    def update(self, game):
-        self.submitted = False
-
-        if not (self.active and self.visible):
-            return
-
-        for k, v in event.typeable.items():
-            if game.event.key_pressed(k):
-                self.text += v.upper() if game.event.modifier(event.Modifier.Shift) else v
-        if game.event.key_pressed(event.Key.Backspace):
-            self.text = self.text[:-1]
-        if game.event.key_pressed(event.Key.Return):
-            self.submitted = True
-
-        self.label.text = self.text
+            self.label.color = (255, 255, 255)
