@@ -59,6 +59,9 @@ class Vector:
     def magnitude(self):
         return math.sqrt(self.magnitude_squared())
 
+    def round(self):
+        return Vector(round(self.x), round(self.y))
+
     def magnitude_squared(self):
         return self.x ** 2 + self.y ** 2
 

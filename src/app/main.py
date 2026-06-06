@@ -4,7 +4,7 @@ import numpy as np
 import nn
 from util import Vector, path
 from gui import TextButton
-import random, time
+import random, time, io
 
 
 PREDICTION_RATE = 20
@@ -46,13 +46,15 @@ class Meter:
         self.score = np.sum(WEIGHT * prediction)
         return self.score
 
-    def update(self):
+    def update_pointer(self):
         angle = math.pi * (self.score_visual / 2 + 0.5)
         pointer_head = Vector(math.cos(angle) * 150, math.sin(angle) * 150) + self.position
         pointer_right = Vector(math.cos(angle + 1) * 17, math.sin(angle + 1) * 17) + self.position
         pointer_left = Vector(math.cos(angle - 1) * 17, math.sin(angle - 1) * 17) + self.position
         self.pointer.x, self.pointer.y, self.pointer.x2, self.pointer.y2, self.pointer.x3, self.pointer.y3 = *pointer_head, *pointer_left, *pointer_right
 
+    def update(self):
+        self.update_pointer()
         self.score_visual = self.score_visual + (self.score - self.score_visual) * 0.2
         self.score_label.text = f"cortisol score: {round(self.score, 2)}"
         self.score_label.color = (round(i * 0.8) for i in self.colours[round(self.score * 2 + 2)])
@@ -65,8 +67,9 @@ class App:
         self.camera_size = Vector(int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH)), int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT)))
         self.window = pyglet.window.Window(self.camera_size.x, self.camera_size.y, "cortisol detector")
         self.size = Vector(*self.window.get_framebuffer_size())
-        self.screen_size = self.camera_size * self.camera_size / self.size
-        self.window.set_size(self.screen_size.x, self.screen_size.y)
+        self.p_screen_size = self.camera_size * self.camera_size / self.size
+        self.p_screen_size.set(round(self.p_screen_size.x), round(self.p_screen_size.y))
+        self.window.set_size(self.p_screen_size.x, self.p_screen_size.y)
         self.screen_size = self.camera_size
 
         self.cascade = cv2.CascadeClassifier(path("models/haarcascade_frontalface_default.xml"))
@@ -93,10 +96,11 @@ class App:
                                               font_name = "arial", font_size = 25, batch = self.stats_batch) for i in range(len(CLASSES))]
         self.pred_data = [pyglet.shapes.Rectangle(200, self.camera_size.y - 55 - 50 * i, 0, 40,
                                                   color = (150, 0, 0), batch = self.stats_batch) for i in range(len(CLASSES))]
-        self.face_rgb = pyglet.image.ImageData(100, 100, "RGB", np.zeros((100, 100, 3)).tobytes(), pitch = -300)
-        self.face_mono = pyglet.image.ImageData(100, 100, "RGB", np.zeros((100, 100, 3)).tobytes(), pitch = -300)
+        self.face_rgb = pyglet.image.ImageData(100, 100, "RGB", np.zeros((100, 100, 3)).tobytes(), pitch = -self.camera_size.x * 3)
+        self.face_mono = pyglet.image.ImageData(100, 100, "RGB", np.zeros((100, 100, 3)).tobytes(), pitch = -self.camera_size.x * 3)
 
         self.stats = False
+        self.crop_location = None
 
         self.mouse_position = Vector(0, 0)
         self.btn_pressed = False
@@ -116,6 +120,17 @@ class App:
                                                 color = (255, 255, 255), anchor_x = "center", anchor_y = "center",
                                                 font_name = "arial", font_size = 40, weight = "bold", batch = self.record_batch)
         self.record_lowest = -float("inf")
+        self.record_record = []
+
+        self.frame_score = 0
+        self.frame_image = None
+        self.frame_location = None
+        colour_buf = pyglet.image.Texture.create(self.screen_size.x, self.screen_size.y)
+        render_buf = pyglet.image.buffer.Renderbuffer(self.screen_size.x, self.screen_size.y, pyglet.gl.GL_DEPTH_COMPONENT)
+        self.framebuf = pyglet.image.Framebuffer()
+        self.framebuf.attach_texture(colour_buf, attachment = pyglet.gl.GL_COLOR_ATTACHMENT0)
+        self.framebuf.attach_renderbuffer(render_buf, attachment = pyglet.gl.GL_DEPTH_ATTACHMENT)
+        self.share_btn = TextButton().set_text("share").fit_text().to_batch(self.batch).set_center(Vector(self.screen_size.x - 90, self.screen_size.y - 230)).set_visible(False)
 
         self.prev_time = time.perf_counter()
 
@@ -168,6 +183,46 @@ class App:
         else:
             self.stats_btn.set_text("stats for nerds 🤓").fit_text().set_center(Vector(self.screen_size.x - 170, self.screen_size.y - 50))
 
+    def construct_frame(self):
+        self.framebuf.bind()
+        self.frame_image.blit(0, 0)
+
+        center = (Vector(self.frame_location[0], self.frame_location[1]) + Vector(self.frame_location[2], self.frame_location[3])) // 2
+        radius = float(center.x - self.frame_location[0])
+        circle = pyglet.shapes.Arc(center.x, center.y, radius, 128, closed = True, thickness = 10, color = (255, 0, 0))
+        circle.draw()
+
+        img_pos = self.screen_size - 150
+        angle = math.atan2(img_pos.y - center.y, img_pos.x - center.x)
+        end_pos = center + Vector((radius + 40) * math.cos(angle), (radius + 40) * math.sin(angle)).round()
+        line = pyglet.shapes.Line(img_pos.x, img_pos.y, end_pos.x, end_pos.y, 10, (255, 0, 0))
+        line.draw()
+        arrow = pyglet.shapes.Triangle(end_pos.x, end_pos.y, end_pos.x-30, end_pos.y-40, end_pos.x+30, end_pos.y-40,
+                                       color = (255, 0, 0))
+        arrow.anchor_y -= 30
+        arrow.rotation = 270 - math.degrees(angle)
+        arrow.draw()
+
+
+        image = pyglet.image.load(path(f"images/score{4 - round(self.frame_score * 2 + 2)}.png"))
+        sprite = pyglet.sprite.Sprite(image)
+        sprite.scale = 500 / sprite.width
+        sprite.x, sprite.y = (self.screen_size - Vector(sprite.width, sprite.height) - 20).decode()
+        sprite.draw()
+
+        self.meter.score_visual = self.meter.score = self.frame_score
+        self.meter.update_pointer()
+        self.meter.score_label.visible = False
+        self.meter.batch.draw()
+        self.meter.score_label.visible = True
+
+        data = (pyglet.gl.GLubyte * (self.screen_size.x * self.screen_size.y * 4))()
+        pyglet.gl.glReadPixels(0, 0, self.screen_size.x, self.screen_size.y, pyglet.gl.GL_RGBA, pyglet.gl.GL_UNSIGNED_BYTE, data)
+
+        self.framebuf.unbind()
+        return data
+
+
     def update(self, frame):
         array = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         img = pyglet.image.ImageData(self.camera_size.x, self.camera_size.y, "RGB", array.tobytes(), pitch = -self.camera_size.x * 3)
@@ -189,6 +244,11 @@ class App:
 
                 cropped = array[face[1]:face[1]+face[3], face[0]:face[0]+face[2]]
                 self.process_face(cropped)
+                self.crop_location = (int(x1), int(y1), int(x2), int(y2))
+            else:
+                self.sample = None
+                for i in self.lines:
+                    i.x, i.y, i.x1, i.x2 = -10, -10, -10, -10
 
             if self.emotion_sample_tick >= PREDICTION_RATE and self.sample is not None:
                 self.emotion_sample_tick = 0
@@ -196,8 +256,11 @@ class App:
                 score = self.meter.update_score(self.prediction)
                 if self.recording and score > self.record_lowest:
                     self.record_lowest = score
-                    self.record_score.text = f"lowest score: {round(score, 2)}"
+                    self.record_score.text = f"lowest cortisol: {round(score, 2)}"
                     self.record_score.color = (round(i * 0.8) for i in self.meter.colours[round(score * 2 + 2)])
+                    self.frame_score = self.record_lowest
+                    self.frame_image = img
+                    self.frame_location = self.crop_location
 
                 if self.stats:
                     for i in range(7):
@@ -216,10 +279,19 @@ class App:
             self.record_lowest = -float("inf")
             self.record_tick = 0
             self.shuffle_emoji()
+            for i in self.record_record:
+                i.visible = False
+        if self.share_btn.visible:
+            self.share_btn.update(self.mouse_position, self.btn_pressed, self.btn_released)
+            if self.share_btn.released:
+                data = self.construct_frame()
+                image = Image.frombytes("RGBA", self.camera_size.decode(), data)
+                image.transpose(Image.Transpose.FLIP_TOP_BOTTOM).show()
 
         now = time.perf_counter()
 
         self.record_btn.set_visible(not self.recording)
+        self.share_btn.set_visible(not self.recording and self.record_lowest != -float("inf"))
         if self.recording:
             self.record_tick += now - self.prev_time
             if self.record_tick < 3:
@@ -239,6 +311,16 @@ class App:
                 self.record_counter.text = str(format(14 - self.record_tick, ".2f"))
             else:
                 self.recording = False
+                score_str = format(round(self.record_lowest, 2), '.2f')
+                if score_str[0] != '-':
+                    score_str = ' ' + score_str
+                self.record_record.append(pyglet.text.Label(f"attempt #{len(self.record_record)+1}   " + score_str,
+                                                            self.screen_size.x - 30, self.screen_size.y - 330 - len(self.record_record) * 40,
+                                                            color = self.record_score.color, anchor_x = "right", anchor_y = "center",
+                                                            font_name = "arial", font_size = 20, weight = "bold", batch = self.batch))
+
+                for i in self.record_record:
+                    i.visible = True
 
         self.prev_time = now
 
@@ -246,12 +328,12 @@ class App:
         image = Image.fromarray(cropped)
         if self.stats:
             display_img = np.asarray(image.resize((100, 100)))
-            self.face_rgb.set_bytes("RGB", -300, display_img.tobytes())
+            self.face_rgb.set_bytes("RGB", -self.camera_size.x * 3, display_img.tobytes())
 
         mono = image.convert('L')
         if self.stats:
             display_img = np.stack([np.asarray(mono.resize((100, 100)))] * 3, axis = -1)
-            self.face_mono.set_bytes("RGB", -300, display_img.tobytes())
+            self.face_mono.set_bytes("RGB", -self.camera_size.x * 3, display_img.tobytes())
 
         self.sample = (np.asarray(mono.resize((48, 48))) / 255).reshape(1, 1, 48, 48)
 
