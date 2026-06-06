@@ -11,5 +11,3 @@ src/models/
 build/
 dist/
 spec/
-
-cortisol-detector.zip
