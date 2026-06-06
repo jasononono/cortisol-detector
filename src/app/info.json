@@ -14,6 +14,11 @@
     "*.py"
   ],
   "data": [
+    "images/score2.png",
+    "images/score3.png",
+    "images/score1.png",
+    "images/score0.png",
+    "images/score4.png",
     "models/v2-5",
     "models/haarcascade_frontalface_default.xml",
     "info.json"
