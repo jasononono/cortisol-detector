@@ -328,12 +328,12 @@ class App:
         image = Image.fromarray(cropped)
         if self.stats:
             display_img = np.asarray(image.resize((100, 100)))
-            self.face_rgb.set_bytes("RGB", -self.camera_size.x * 3, display_img.tobytes())
+            self.face_rgb.set_bytes("RGB", -300, display_img.tobytes())
 
         mono = image.convert('L')
         if self.stats:
             display_img = np.stack([np.asarray(mono.resize((100, 100)))] * 3, axis = -1)
-            self.face_mono.set_bytes("RGB", -self.camera_size.x * 3, display_img.tobytes())
+            self.face_mono.set_bytes("RGB", -300, display_img.tobytes())
 
         self.sample = (np.asarray(mono.resize((48, 48))) / 255).reshape(1, 1, 48, 48)
 

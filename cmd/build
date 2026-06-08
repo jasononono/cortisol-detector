@@ -5,6 +5,6 @@
 
 DIST_NAME=$(python3 cmd/install.py)
 
-cd dist
-zip -rq ../"$DIST_NAME".zip "$DIST_NAME"
-cd ..
+#cd dist
+#zip -rq ../"$DIST_NAME".zip "$DIST_NAME"
+#cd ..
